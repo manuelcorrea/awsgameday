@@ -1,0 +1,28 @@
+{
+  "variables": {
+    "aws_access_key": "AKIAJXZ6GRFSADDOYCGQ",
+    "aws_secret_key": "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"
+  },
+  "builders": [{
+    "type": "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "region": "ap-northeast-1",
+    "source_ami": "ami-4985b048",
+    "instance_type": "t2.micro",
+    "ssh_username": "ec2-user",
+    "ami_name": "batchproc-{{timestamp}}"
+  }
+  ],
+  "provisioners": [{
+    "type": "shell",
+    "inline": [
+   "yum install -y ImageMagick",
+    "easy_install argparse",
+    "mkdir /home/ec2-user/jobs",
+   " wget -O /home/ec2-user/image_processor.py https://us-west-2-aws-training.s3.amazonaws.com/architecting-lab-3-creating-a-batch-processing-cluster-3.1/static/image_processor.py"
+    ]
+  }
+
+  ]
+}
