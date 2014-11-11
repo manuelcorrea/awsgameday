@@ -1,0 +1,307 @@
+
+{
+  "Description" : "Private Subnet.",
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Parameters"               : {
+    "Region" : {
+      "Description" : "Name of regional footprint for the VPC",
+      "Type"        : "String",
+      "AllowedValues" : [
+        "japan"
+      ],
+      "ConstraintDescription" : "Must specify USEast, USEastTest, Ireland, or Singapore."
+    },
+    "TeamName" : {
+      "Description" : "Name of the team that will have access to the server management within these subnets - must match Team tag value",
+      "Type"        : "String"
+    },
+    "Accessibility" : {
+      "Description" : "Is the subnet Public or Private, ie do any instances need public IP resolution?",
+      "Type"        : "String",
+      "AllowedValues" : [
+        "Private",
+        "Public"
+      ],
+      "ConstraintDescription" : "Must specify Public or Private."
+    },
+    "SubnetCIDROne" : {
+      "Description" : "CIDR block for the subnet in the first AZ",
+      "Type"        : "String"
+    },
+    "SubnetCIDRTwo" : {
+      "Description" : "CIDR block for the subnet in the second AZ",
+      "Type"        : "String"
+    }
+  },
+  "Mappings"                 : {
+    "RegionVPCID" : {
+      "japan" : {
+        "VPC" : "vpc-13778b76"
+      }
+    },
+    "RegionRouteTableID" : {
+      "japan" : {
+        "PrivateRouteOne" : "rtb-ce5ea6ab",
+        "PrivateRouteTwo" : "rtb-c85ea6ad",
+        "PublicRoute"     : "rtb-c95ea6ac"
+      }
+    },
+    "RegionNetworkACLID" : {
+      "japan" : {
+        "Public" : "acl-0f45bc6a",
+        "Private" : "acl-0c45bc69"
+      }
+    },
+    "AZConfig"           : {
+      "japan" : {
+        "One" : "ap-northeast-1a",
+        "Two" : "ap-northeast-1c"
+      }
+    }
+  },
+  "Conditions"               : {
+    "IsPrivateSubnet" : {
+      "Fn::Equals" : [
+        {
+          "Ref" : "Accessibility"
+        },
+        "Private"
+      ]
+    }
+  },
+  "Resources"                : {
+    "SubnetTwo" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Metadata" : {
+        "forced-update" : "4-18-14"
+      },
+      "Properties" : {
+        "CidrBlock" : {
+          "Ref" : "SubnetCIDRTwo"
+        },
+        "AvailabilityZone" : {
+          "Fn::FindInMap" : [
+            "AZConfig",
+            {
+              "Ref" : "Region"
+            },
+            "Two"
+          ]
+        },
+        "VpcId"            : {
+          "Fn::FindInMap" : [
+            "RegionVPCID",
+            {
+              "Ref" : "Region"
+            },
+            "VPC"
+          ]
+        },
+        "Tags"             : [
+          {
+            "Key" : "Team",
+            "Value" : {
+              "Ref" : "TeamName"
+            }
+          },
+          {
+            "Key" : "Name",
+            "Value" : {
+              "Fn::If" : [
+                "IsPrivateSubnet",
+                {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      {
+                        "Ref" : "TeamName"
+                      },
+                      "Subnet2"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "CloudPlatformDevelopmentSubnet-For",
+                      {
+                        "Ref" : "TeamName"
+                      },
+                      "Subnet2"
+                    ]
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "SubnetTwoACL" : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "NetworkAclId" : {
+          "Fn::FindInMap" : [
+            "RegionNetworkACLID",
+            {
+              "Ref" : "Region"
+            },
+            {
+              "Ref" : "Accessibility"
+            }
+          ]
+        },
+        "SubnetId"     : {
+          "Ref" : "SubnetTwo"
+        }
+      }
+    },
+    "SubnetTwoRoute" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : {
+          "Fn::If" : [
+            "IsPrivateSubnet",
+            {
+              "Fn::FindInMap" : [
+                "RegionRouteTableID",
+                {
+                  "Ref" : "Region"
+                },
+                "PrivateRouteTwo"
+              ]
+            },
+            {
+              "Fn::FindInMap" : [
+                "RegionRouteTableID",
+                {
+                  "Ref" : "Region"
+                },
+                "PublicRoute"
+              ]
+            }
+          ]
+        },
+        "SubnetId"     : {
+          "Ref" : "SubnetTwo"
+        }
+      }
+    },
+    "SubnetOne"      : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "CidrBlock" : {
+          "Ref" : "SubnetCIDROne"
+        },
+        "AvailabilityZone" : {
+          "Fn::FindInMap" : [
+            "AZConfig",
+            {
+              "Ref" : "Region"
+            },
+            "One"
+          ]
+        },
+        "VpcId"            : {
+          "Fn::FindInMap" : [
+            "RegionVPCID",
+            {
+              "Ref" : "Region"
+            },
+            "VPC"
+          ]
+        },
+        "Tags"             : [
+          {
+            "Key" : "Team",
+            "Value" : {
+              "Ref" : "TeamName"
+            }
+          },
+          {
+            "Key" : "Name",
+            "Value" : {
+              "Fn::If" : [
+                "IsPrivateSubnet",
+                {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      {
+                        "Ref" : "TeamName"
+                      },
+                      "Subnet1"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join" : [
+                    "",
+                    [
+                      "CloudPlatformDevelopmentSubnet-For",
+                      {
+                        "Ref" : "TeamName"
+                      },
+                      "Subnet1"
+                    ]
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "SubnetOneACL"   : {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "NetworkAclId" : {
+          "Fn::FindInMap" : [
+            "RegionNetworkACLID",
+            {
+              "Ref" : "Region"
+            },
+            {
+              "Ref" : "Accessibility"
+            }
+          ]
+        },
+        "SubnetId"     : {
+          "Ref" : "SubnetOne"
+        }
+      }
+    },
+    "SubnetOneRoute" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "RouteTableId" : {
+          "Fn::If" : [
+            "IsPrivateSubnet",
+            {
+              "Fn::FindInMap" : [
+                "RegionRouteTableID",
+                {
+                  "Ref" : "Region"
+                },
+                "PrivateRouteOne"
+              ]
+            },
+            {
+              "Fn::FindInMap" : [
+                "RegionRouteTableID",
+                {
+                  "Ref" : "Region"
+                },
+                "PublicRoute"
+              ]
+            }
+          ]
+        },
+        "SubnetId"     : {
+          "Ref" : "SubnetOne"
+        }
+      }
+    }
+  }
+}
