@@ -1,5 +1,5 @@
 {
-    "Description" : "ProjectMeteor VPC",
+    "Description" : "1.0 VPC template. Setup a simple VPC in AWS",
     "AWSTemplateFormatVersion" : "2010-09-09",
     "Parameters"               : {
         "KeyName" : {
@@ -14,37 +14,48 @@
             "Description" : "Name of regional footprint for the VPC",
             "Type"        : "String",
             "AllowedValues" : [
-                "japan"
+                "USEast",
+                "USEastTest",
+                "Ireland",
+                "Singapore"
             ],
-            "ConstraintDescription" : "japan"
+            "ConstraintDescription" : "Must specify USEast, USEastTest, Ireland, or Singapore."
+        },
+        "NATAMI" : {
+            "Description" : "AMI ID for NATs",
+            "Type"        : "String"
+        },
+        "CIDR" : {
+            "Description" : "VPC CIDR Range",
+            "Type"        : "String"
+        },
+        "PublicSubnetCIDR1" : {
+            "Description" : "IP Range for public network 1",
+            "Type"        : "String"
+        },
+        "PublicSubnetCIDR2" : {
+            "Description" : "IP Range for public network 2",
+            "Type"        : "String"
         }
+
     },
     "Mappings"                 : {
-        "AWSBastionAMI" : {
-            "japan" : {
-                "AMI" : "ami-4985b048"
-            }
-        },
-        "AWSNATAMI"     : {
-            "japan" : {
-                "AMI" : "ami-27d6e626"
-            }
-        },
         "AZConfig"      : {
-            "japan" : {
-                "One" : "ap-northeast-1a",
-                "Two" : "ap-northeast-1c"
-            }
-        },
-        "VPCSubnetConfig" : {
-            "japan" : {
-                "CIDR" : "172.29.0.0/16"
-            }
-        },
-        "PublicSubnetConfig" : {
-            "japan" : {
-                "CIDR" : "172.29.0.0/24",
-                "CIDR2" : "172.29.1.0/24"
+            "USEast" : {
+                "One" : "us-east-1a",
+                "Two" : "us-east-1c"
+            },
+            "USEastTest" : {
+                "One" : "us-east-1a",
+                "Two" : "us-east-1c"
+            },
+            "Ireland"    : {
+                "One" : "eu-west-1a",
+                "Two" : "eu-west-1c"
+            },
+            "Singapore"  : {
+                "One" : "ap-southeast-1a",
+                "Two" : "ap-southeast-1b"
             }
         }
     },
@@ -56,13 +67,7 @@
             },
             "Properties" : {
                 "CidrBlock" : {
-                    "Fn::FindInMap" : [
-                        "VPCSubnetConfig",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "CIDR"
-                    ]
+                    "Ref" : "CIDR"
                 },
                 "InstanceTenancy" : "default",
                 "EnableDnsSupport" : "true",
@@ -81,13 +86,7 @@
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
                 "CidrBlock" : {
-                    "Fn::FindInMap" : [
-                        "PublicSubnetConfig",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "CIDR2"
-                    ]
+                    "Ref" : "PublicSubnetCIDR2"
                 },
                 "AvailabilityZone" : {
                     "Fn::FindInMap" : [
@@ -104,7 +103,7 @@
                 "Tags"             : [
                     {
                         "Key" : "Name",
-                        "Value" : "CloudPlatformDevelopmentSubnet2"
+                        "Value" : "PublicSubnet2"
                     }
                 ]
             }
@@ -113,13 +112,7 @@
             "Type" : "AWS::EC2::Subnet",
             "Properties" : {
                 "CidrBlock" : {
-                    "Fn::FindInMap" : [
-                        "PublicSubnetConfig",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "CIDR"
-                    ]
+                    "Ref" : "PublicSubnetCIDR1"
                 },
                 "AvailabilityZone" : {
                     "Fn::FindInMap" : [
@@ -136,7 +129,7 @@
                 "Tags"             : [
                     {
                         "Key" : "Name",
-                        "Value" : "publicSubnet1"
+                        "Value" : "PublicSubnet1"
                     }
                 ]
             }
@@ -198,6 +191,10 @@
                     {
                         "Key" : "Network",
                         "Value" : "Private"
+                    },
+                    {
+                        "Key" : "Name",
+                        "Value" : "PrivateRouteTwo"
                     }
                 ]
             }
@@ -212,6 +209,10 @@
                     {
                         "Key" : "Network",
                         "Value" : "Private"
+                    },
+                    {
+                        "Key" : "Name",
+                        "Value" : "PrivateRouteOne"
                     }
                 ]
             }
@@ -226,31 +227,15 @@
                     {
                         "Key" : "Network",
                         "Value" : "Public"
+                    },
+                    {
+                        "Key" : "Name",
+                        "Value" : "PublicRoute"
                     }
                 ]
             }
         },
-        "EIPBastionTwo"   : {
-            "Type" : "AWS::EC2::EIP",
-            "DependsOn" : "gw1",
-            "Properties" : {
-                "Domain" : "vpc",
-                "InstanceId" : {
-                    "Ref" : "BastionTwo"
-                }
-            }
-        },
-        "EIPBastionOne"   : {
-            "Type" : "AWS::EC2::EIP",
-            "DependsOn" : "gw1",
-            "Properties" : {
-                "Domain" : "vpc",
-                "InstanceId" : {
-                    "Ref" : "BastionOne"
-                }
-            }
-        },
-        "EIPCloudPlatformDevelopmentOne"       : {
+        "EIPNATOne"       : {
             "Type" : "AWS::EC2::EIP",
             "DependsOn" : "gw1",
             "Properties" : {
@@ -274,13 +259,7 @@
             "Type" : "AWS::EC2::Instance",
             "Properties" : {
                 "ImageId" : {
-                    "Fn::FindInMap" : [
-                        "AWSNATAMI",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "AMI"
-                    ]
+                    "Ref" : "NATAMI"
                 },
                 "SourceDestCheck" : "false",
                 "InstanceType"    : "t2.small",
@@ -308,49 +287,11 @@
                 ]
             }
         },
-        "BastionOne"      : {
-            "Type" : "AWS::EC2::Instance",
-            "Properties" : {
-                "ImageId" : {
-                    "Fn::FindInMap" : [
-                        "AWSBastionAMI",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "AMI"
-                    ]
-                },
-                "InstanceType" : "t2.small",
-                "KeyName"      : {
-                    "Ref" : "KeyName"
-                },
-                "SubnetId"     : {
-                    "Ref" : "PublicSubnetOne"
-                },
-                "Tags"         : [
-                    {
-                        "Key" : "Name",
-                        "Value" : "BastionOne"
-                    }
-                ],
-                "SecurityGroupIds" : [
-                    {
-                        "Ref" : "BastionSG"
-                    }
-                ]
-            }
-        },
         "NATTwo"          : {
             "Type" : "AWS::EC2::Instance",
             "Properties" : {
                 "ImageId" : {
-                    "Fn::FindInMap" : [
-                        "AWSNATAMI",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "AMI"
-                    ]
+                    "Ref" : "NATAMI"
                 },
                 "SourceDestCheck" : "false",
                 "InstanceType"    : "t2.small",
@@ -378,38 +319,7 @@
                 ]
             }
         },
-        "BastionTwo"      : {
-            "Type" : "AWS::EC2::Instance",
-            "Properties" : {
-                "ImageId" : {
-                    "Fn::FindInMap" : [
-                        "AWSBastionAMI",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "AMI"
-                    ]
-                },
-                "InstanceType" : "t2.small",
-                "KeyName"      : {
-                    "Ref" : "KeyName"
-                },
-                "SubnetId"     : {
-                    "Ref" : "PublicSubnetTwo"
-                },
-                "Tags"         : [
-                    {
-                        "Key" : "Name",
-                        "Value" : "BastionTwo"
-                    }
-                ],
-                "SecurityGroupIds" : [
-                    {
-                        "Ref" : "BastionSG"
-                    }
-                ]
-            }
-        },
+
         "BastionSG"       : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
@@ -431,13 +341,7 @@
                         "FromPort"   : "1",
                         "ToPort"     : "65535",
                         "CidrIp"     : {
-                            "Fn::FindInMap" : [
-                                "VPCSubnetConfig",
-                                {
-                                    "Ref" : "Region"
-                                },
-                                "CIDR"
-                            ]
+                            "Ref": "CIDR"
                         }
                     }
                 ]
@@ -456,13 +360,7 @@
                         "FromPort"   : "1",
                         "ToPort"     : "65535",
                         "CidrIp"     : {
-                            "Fn::FindInMap" : [
-                                "VPCSubnetConfig",
-                                {
-                                    "Ref" : "Region"
-                                },
-                                "CIDR"
-                            ]
+                            "Ref": "CIDR"
                         }
                     }
                 ],
@@ -610,13 +508,7 @@
             "Type" : "AWS::EC2::NetworkAclEntry",
             "Properties" : {
                 "CidrBlock" : {
-                    "Fn::FindInMap" : [
-                        "VPCSubnetConfig",
-                        {
-                            "Ref" : "Region"
-                        },
-                        "CIDR"
-                    ]
+                    "Ref": "CIDR"
                 },
                 "Protocol"  : "6",
                 "RuleAction" : "allow",
@@ -625,6 +517,25 @@
                     "From" : "0",
                     "To"   : "65535"
                 },
+                "NetworkAclId" : {
+                    "Ref" : "PublicACL"
+                }
+            }
+        },
+        "acl12"                : {
+            "Type" : "AWS::EC2::NetworkAclEntry",
+            "Properties" : {
+                "CidrBlock" : {
+                    "Ref": "CIDR"
+                },
+                "Protocol"  : "1",
+                "RuleAction" : "allow",
+                "RuleNumber" : "106",
+                "PortRange"  : {
+                    "From" : "0",
+                    "To"   : "65535"
+                },
+                "Icmp" : { "Code" : "-1", "Type" : "-1" },
                 "NetworkAclId" : {
                     "Ref" : "PublicACL"
                 }
@@ -748,16 +659,6 @@
         "EIPNATOneIP" : {
             "Value" : {
                 "Ref" : "EIPNATOne"
-            }
-        },
-        "EIPBastionTwoIP" : {
-            "Value" : {
-                "Ref" : "EIPBastionTwo"
-            }
-        },
-        "EIPBastionOneIP" : {
-            "Value" : {
-                "Ref" : "EIPBastionOne"
             }
         }
     }
